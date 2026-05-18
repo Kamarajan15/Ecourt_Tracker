@@ -12,10 +12,30 @@ public class CaseDbContext : DbContext
 
     public DbSet<CaseData> Cases => Set<CaseData>();
     public DbSet<SearchLog> SearchLogs => Set<SearchLog>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<FollowedCase> FollowedCases => Set<FollowedCase>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Configure FollowedCase
+        modelBuilder.Entity<FollowedCase>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.CnrNumber).IsRequired();
+            entity.Property(f => f.UserId).IsRequired();
+        });
+
+        // Configure User
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(u => u.Id);
+            entity.Property(u => u.Username).IsRequired();
+            entity.HasIndex(u => u.Username).IsUnique();
+            entity.Property(u => u.PasswordHash).IsRequired();
+            entity.Property(u => u.Role).IsRequired().HasDefaultValue("User");
+        });
 
         // Configure CaseData
         modelBuilder.Entity<CaseData>(entity =>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./zCnrNumber.css";
 
-function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSearch }) {
+function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSearch, user }) {
     const [cnr, setCnr] = useState("");
     const [captcha, setCaptcha] = useState("");
     const [captchaImage, setCaptchaImage] = useState("");
@@ -9,9 +9,10 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [activeTab, setActiveTab] = useState("info");
+    const [followed, setFollowed] = useState(false);
 
     // Backend URL
-    const BASE_URL = "http://localhost:5079/api/ECourt";
+    const BASE_URL = "http://localhost:5080/api/ECourt";
 
     // Load captcha from backend
     const refreshCaptcha = async () => {
@@ -27,6 +28,68 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
             setCaptchaImage(`data:image/png;base64,${data.captchaBase64}`);
         } catch (error) {
             console.error("Error refreshing CAPTCHA:", error);
+        }
+    };
+
+    // Check followed status of a specific CNR number
+    const checkFollowedStatus = async (cnrNumber) => {
+        if (!cnrNumber) return;
+        try {
+            const response = await fetch(`${BASE_URL}/followed-status/${cnrNumber.trim()}`, {
+                headers: {
+                    "Authorization": `Bearer ${user?.token}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setFollowed(data.followed);
+            }
+        } catch (error) {
+            console.error("Error checking followed status:", error);
+        }
+    };
+
+    // Toggle follow status of a CNR
+    const handleToggleFollow = async (cnrNumber) => {
+        if (!cnrNumber) return;
+        try {
+            setLoading(true);
+            if (followed) {
+                // Unfollow case
+                const response = await fetch(`${BASE_URL}/unfollow/${cnrNumber.trim()}`, {
+                    method: "DELETE",
+                    headers: {
+                        "Authorization": `Bearer ${user?.token}`
+                    }
+                });
+                if (response.ok) {
+                    setFollowed(false);
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.error || "Failed to unfollow case.");
+                }
+            } else {
+                // Follow case
+                const response = await fetch(`${BASE_URL}/follow`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${user?.token}`
+                    },
+                    body: JSON.stringify({ cnrNumber: cnrNumber.trim() })
+                });
+                if (response.ok) {
+                    setFollowed(true);
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.error || "Failed to follow case.");
+                }
+            }
+        } catch (error) {
+            console.error("Toggle follow failed:", error);
+            alert(error.message || "Failed to toggle follow status.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -67,6 +130,8 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
                     const data = await response.json();
                     setResult(data);
                     setLoading(false);
+                    // Check follow status instantly
+                    checkFollowedStatus(cnr.trim());
                     return; // Retreived from PG Cache! Absolutely zero requests sent to eCourts.
                 }
             } catch (error) {
@@ -103,7 +168,8 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
             const response = await fetch(`${BASE_URL}/search`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${user?.token}`
                 },
                 body: JSON.stringify({
                     sessionId: sessionId,
@@ -114,6 +180,10 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
 
             const data = await response.json();
             setResult(data);
+
+            if (data.success && data.caseDetails) {
+                checkFollowedStatus(cnr.trim());
+            }
 
             // Clean up session since it's consumed
             setSessionId("");
@@ -144,7 +214,8 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
             const response = await fetch(`${BASE_URL}/autosearch`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${user?.token}`
                 },
                 body: JSON.stringify({
                     cnrNumber: cnrVal.trim()
@@ -153,6 +224,11 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
 
             const data = await response.json();
             setResult(data);
+
+            if (data.success && data.caseDetails) {
+                checkFollowedStatus(cnrVal.trim());
+            }
+
             refreshCaptcha();
             setCaptcha("");
         } catch (error) {
@@ -162,6 +238,34 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
                 message: "Failed to execute automated search pipeline. Ensure backend is running."
             });
             refreshCaptcha();
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Admin function to delete case cache from PG Database
+    const handleDeleteCache = async (cnrVal) => {
+        if (!window.confirm(`Are you sure you want to delete case ${cnrVal} from the database cache?`)) {
+            return;
+        }
+        try {
+            setLoading(true);
+            const response = await fetch(`${BASE_URL}/case/${cnrVal.trim()}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${user?.token}`
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message || "Case successfully removed from database cache!");
+                setResult(null);
+            } else {
+                throw new Error(data.error || "Failed to delete case cache.");
+            }
+        } catch (error) {
+            console.error("Delete cache failed:", error);
+            alert(error.message || "Failed to delete cache from server.");
         } finally {
             setLoading(false);
         }
@@ -270,7 +374,7 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
                                 disabled={loading}
                                 title="Reload Captcha Image"
                             >
-                                 Refresh
+                                Refresh
                             </button>
 
                             <input
@@ -301,7 +405,7 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
                         disabled={loading}
                         title="Requires manually entering the CAPTCHA code above"
                     >
-                         Manual Search
+                        Manual Search
                     </button>
                     <button
                         className="reset"
@@ -337,8 +441,83 @@ function CnrNumber({ prefilledCnr, clearPrefill, forceSearchOnLoad, clearForceSe
                                 </div>
                             )}
                         </div>
-                        <div className="cnr-badge">
-                            CNR: {caseData.cnrNumber}
+                        <div className="header-actions" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            {/* Follow/Unfollow Button */}
+                            <button
+                                className="follow-btn"
+                                onClick={() => handleToggleFollow(caseData.cnrNumber)}
+                                disabled={loading}
+                                title={followed ? "Stop tracking this case" : "Track updates for this case"}
+                                style={{
+                                    background: followed ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                    border: followed ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid var(--border)',
+                                    color: followed ? '#a855f7' : 'var(--text-h)',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    outline: 'none'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (followed) {
+                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                        e.currentTarget.style.color = '#ef4444';
+                                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                    } else {
+                                        e.currentTarget.style.background = 'var(--accent-bg)';
+                                        e.currentTarget.style.color = 'var(--accent)';
+                                        e.currentTarget.style.borderColor = 'var(--accent-border)';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = followed ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+                                    e.currentTarget.style.color = followed ? '#a855f7' : 'var(--text-h)';
+                                    e.currentTarget.style.borderColor = followed ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid var(--border)';
+                                }}
+                            >
+                                {followed ? '★ Following' : '☆ Follow Case'}
+                            </button>
+
+                            <div className="cnr-badge">
+                                CNR: {caseData.cnrNumber}
+                            </div>
+                            {user?.role === 'Admin' && (
+                                <button
+                                    className="delete-cache-btn"
+                                    onClick={() => handleDeleteCache(caseData.cnrNumber)}
+                                    title="Delete this case from PostgreSQL Database Cache (Admin Only)"
+                                    style={{
+                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                        color: '#ef4444',
+                                        padding: '8px 16px',
+                                        borderRadius: '8px',
+                                        fontWeight: '600',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        outline: 'none'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#ef4444';
+                                        e.currentTarget.style.color = '#fff';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                        e.currentTarget.style.color = '#ef4444';
+                                    }}
+                                >
+                                    🗑️ Delete Cache
+                                </button>
+                            )}
                         </div>
                     </div>
 

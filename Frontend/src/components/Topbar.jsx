@@ -1,7 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Topbar.css';
 
-const Topbar = ({ theme, toggleTheme }) => {
+const Topbar = ({ theme, toggleTheme, user, onLogout }) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Fallback if user details are loading
+  const username = user?.username || 'Guest';
+  const role = user?.role || 'User';
+
+  const handleToggleDropdown = () => {
+    setDropdownOpen(prev => !prev);
+  };
+
+  const handleDropdownClick = (e) => {
+    e.stopPropagation();
+  };
+
   return (
     <div className="topbar">
       <div className="topbar-left">
@@ -18,16 +32,36 @@ const Topbar = ({ theme, toggleTheme }) => {
           </button>
         </div>
         
-        <div className="profile-view">
+        <div 
+          className="profile-view" 
+          onClick={handleToggleDropdown}
+          onMouseLeave={() => setDropdownOpen(false)}
+        >
           <div className="profile-info">
-            <span className="profile-name">Admin Dashboard</span>
-            <span className="profile-role">Supreme Access</span>
+            <span className="profile-name">{username}</span>
+            <span className="profile-role">{role === 'Admin' ? 'Administrator' : 'Standard User'}</span>
           </div>
           <div className="profile-avatar">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User Avatar" />
+            <img 
+              src={`https://api.dicebear.com/7.x/initials/svg?seed=${username}&backgroundColor=aa3bff`} 
+              alt="User Avatar" 
+            />
             <div className="status-indicator"></div>
           </div>
           <span className="dropdown-arrow">▼</span>
+
+          {dropdownOpen && (
+            <div className="profile-dropdown" onClick={handleDropdownClick}>
+              <div className="dropdown-item user-details">
+                <strong>{username}</strong>
+                <span>{role === 'Admin' ? 'Admin Access' : 'Standard Access'}</span>
+              </div>
+              <hr className="dropdown-divider" />
+              <button className="dropdown-item logout-btn" onClick={onLogout}>
+                🚪 Log Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

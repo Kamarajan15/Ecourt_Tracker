@@ -3,12 +3,12 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import './Layout.css';
 
-const Layout = ({ children, theme, toggleTheme, activePage, onPageChange }) => {
+const Layout = ({ children, theme, toggleTheme, activePage, onPageChange, user, onLogout }) => {
   return (
     <div className="layout">
       <Sidebar activePage={activePage} onPageChange={onPageChange} />
       <div className="main-container">
-        <Topbar theme={theme} toggleTheme={toggleTheme} />
+        <Topbar theme={theme} toggleTheme={toggleTheme} user={user} onLogout={onLogout} />
         <main className="content">
           {children}
         </main>

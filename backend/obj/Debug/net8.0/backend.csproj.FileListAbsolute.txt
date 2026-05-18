@@ -536,3 +536,12 @@ K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.EntityFrameworkC
 K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.Relational.dll
 K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Npgsql.dll
 K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
+K:\Projects\eCourt_Webscrape\backend\obj\Debug\net8.0\backend.sourcelink.json
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+K:\Projects\eCourt_Webscrape\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll

@@ -23,30 +23,14 @@ const Sidebar = ({ activePage, onPageChange }) => {
           <span className="nav-icon">🔍</span>
           <span className="nav-label">CNR Search</span>
         </div>
-
-        {/* <div className="nav-section">MANAGEMENT</div>
-        <div className="nav-item">
-          <span className="nav-icon">🕒</span>
-          <span className="nav-label">Search History</span>
+        <div
+          className={`nav-item ${activePage === 'followed' ? 'active' : ''}`}
+          onClick={() => onPageChange('followed')}
+        >
+          <span className="nav-icon">⭐</span>
+          <span className="nav-label">Followed Cases</span>
         </div>
-        <div className="nav-item">
-          <span className="nav-icon">📁</span>
-          <span className="nav-label">Saved Cases</span>
-        </div>
-        
-        <div className="nav-section">SYSTEM</div>
-        <div className="nav-item">
-          <span className="nav-icon">⚙️</span>
-          <span className="nav-label">Settings</span>
-        </div>
-        <div className="nav-item">
-          <span className="nav-icon">❓</span>
-          <span className="nav-label">Help Center</span>
-        </div> */}
       </nav>
-
-      {/* <div className="sidebar-footer">
-      </div> */}
     </div>
   );
 };

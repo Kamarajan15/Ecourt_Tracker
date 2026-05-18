@@ -327,6 +327,7 @@ public class ECourtController : ControllerBase
         }
     }
 
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
     [HttpDelete("case/{cnrNumber}")]
     public async Task<IActionResult> DeleteCase(string cnrNumber)
     {
@@ -348,6 +349,147 @@ public class ECourtController : ControllerBase
         {
             _logger.LogError(ex, "Error deleting case {Cnr}", cnrNumber);
             return StatusCode(500, new { error = "Failed to delete case from cache" });
+        }
+    }
+
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpGet("followed")]
+    public async Task<IActionResult> GetFollowedCases()
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { error = "Invalid token or user ID." });
+            }
+
+            var followedList = await _dbContext.FollowedCases
+                .Where(f => f.UserId == userId)
+                .OrderByDescending(f => f.FollowedAt)
+                .ToListAsync();
+
+            return Ok(followedList);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching followed cases");
+            return StatusCode(500, new { error = "Failed to load followed cases." });
+        }
+    }
+
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpGet("followed-status/{cnrNumber}")]
+    public async Task<IActionResult> GetFollowedStatus(string cnrNumber)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { error = "Invalid token or user ID." });
+            }
+
+            var isFollowed = await _dbContext.FollowedCases
+                .AnyAsync(f => f.UserId == userId && f.CnrNumber.ToLower() == cnrNumber.Trim().ToLower());
+
+            return Ok(new { followed = isFollowed });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting followed status for {Cnr}", cnrNumber);
+            return StatusCode(500, new { error = "Failed to retrieve followed status." });
+        }
+    }
+
+    public class FollowRequest
+    {
+        public string CnrNumber { get; set; } = string.Empty;
+    }
+
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpPost("follow")]
+    public async Task<IActionResult> FollowCase([FromBody] FollowRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.CnrNumber))
+            {
+                return BadRequest(new { error = "CNR number is required." });
+            }
+
+            var userIdClaim = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { error = "Invalid token or user ID." });
+            }
+
+            var cnr = request.CnrNumber.Trim();
+            
+            // Check if already followed
+            var alreadyFollowed = await _dbContext.FollowedCases
+                .AnyAsync(f => f.UserId == userId && f.CnrNumber.ToLower() == cnr.ToLower());
+            if (alreadyFollowed)
+            {
+                return Ok(new { success = true, message = "Case is already followed." });
+            }
+
+            // Retrieve case information from database to populate followed details
+            var caseDetails = await _dbContext.Cases.FindAsync(cnr);
+            var title = caseDetails?.CaseTitle ?? "Unknown Case";
+            var status = caseDetails?.CaseStatus ?? "Unknown Status";
+
+            var newFollow = new FollowedCase
+            {
+                UserId = userId,
+                CnrNumber = cnr,
+                CaseTitle = title,
+                CaseStatus = status,
+                FollowedAt = DateTime.UtcNow
+            };
+
+            _dbContext.FollowedCases.Add(newFollow);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Successfully followed case.", followedCase = newFollow });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error following case {Cnr}", request.CnrNumber);
+            return StatusCode(500, new { error = "Failed to follow case." });
+        }
+    }
+
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpDelete("unfollow/{cnrNumber}")]
+    public async Task<IActionResult> UnfollowCase(string cnrNumber)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { error = "Invalid token or user ID." });
+            }
+
+            var cnr = cnrNumber.Trim();
+            var followedItem = await _dbContext.FollowedCases
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.CnrNumber.ToLower() == cnr.ToLower());
+
+            if (followedItem == null)
+            {
+                return NotFound(new { error = "Followed case record not found." });
+            }
+
+            _dbContext.FollowedCases.Remove(followedItem);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Successfully unfollowed case." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error unfollowing case {Cnr}", cnrNumber);
+            return StatusCode(500, new { error = "Failed to unfollow case." });
         }
     }
 
